@@ -44,6 +44,9 @@ tokens {
 // maybe_stmt %name parseIdentifier identifier %name parseType ktype %name parseBackpack backpack
 // %partial parseHeader header
 
+// root node and module body
+root: mod_attrib* top_decl*;
+
 //---------------------------------------------------------------------------
 // Module
 
@@ -52,7 +55,6 @@ tokens {
 // solution would be the introduction of a new pragma DEPRECATED_MODULE, but this is not very nice,
 // either, and DEPRECATED is only expected to be used by people who really know what they are doing.
 // :-)
-
 module_id: UpperName;
 
 module_path: ('flake' | 'super' | module_id) (
@@ -61,14 +63,9 @@ module_path: ('flake' | 'super' | module_id) (
 
 module_expr: module_path;
 
-module_decl:
-	attribute* 'module' module_id modwarning? mod_body ';';
+module_decl: attribute* 'module' module_id mod_body ';';
 
-modwarning:
-	'{-# DEPRECATED' strings '#-}'
-	| '{-# WARNING' strings '#-}';
-
-mod_body: 'where'? '{' top_decl* '}' | '=' module_expr;
+mod_body: 'where'? '{' root '}' | '=' module_expr;
 
 //---------------------------------------------------------------------------
 // Import Declarations
@@ -144,10 +141,7 @@ top_decl:
 	| standalone_deriving
 	| role_annotion
 	| visibility? 'foreign' fdecl
-	| '{-# DEPRECATED' deprecation+ '#-}' ';'
-	| '{-# WARNING' warning+ '#-}' ';'
 	| '{-# RULES' rule+ '#-}' ';'
-	| annotation
 	| decl_no_th
 	| attribute* block_header '{' top_decl* '}' ';'
 
@@ -360,24 +354,6 @@ rule_var: var_id | '(' var_id ':' forall_type ')';
  */
 
 //---------------------------------------------------------------------------
-// Warnings and deprecations (c.f. rules)
-
-// SUP: TEMPORARY HACK, not checking for `module Foo'
-warning: name_list strings ';';
-
-// SUP: TEMPORARY HACK, not checking for `module Foo'
-deprecation: name_list strings ';';
-
-strings: String | '[' (String (',' String)*)? ']';
-
-//---------------------------------------------------------------------------
-// Annotations
-annotation:
-	'{-# ANN' name_var arg_exp '#-}'
-	| '{-# ANN' 'type' ordinary_type_con arg_exp '#-}'
-	| '{-# ANN' 'module' arg_exp '#-}';
-
-//---------------------------------------------------------------------------
 // Foreign import and export declarations
 
 fdecl:
@@ -564,7 +540,6 @@ sig_decl:
 	| '{-# COMPLETE' con_list opt_tyconsig '#-}' ';'
 	// This rule is for both INLINE and INLINABLE pragmas
 	| '{-# INLINE' activation qvarcon '#-}' ';'
-	| '{-# BUILTIN' qvarcon '#-}' ';'
 	| '{-# SPECIALISE' activation qualified_var ':' sigtypes1 '#-}' ';'
 	| '{-# SPECIALISE_INLINE' activation qualified_var ':' sigtypes1 '#-}' ';'
 	| '{-# SPECIALISE' 'instance' instance_type '#-}' ';'
@@ -823,7 +798,9 @@ overloaded_label: LabelVarId;
 //---------------------------------------------------------------------------
 // Attributes
 
-attribute: '{-# ATTRIB' exp '#-}';
+attribute: '{-@' String exp '-}';
+
+mod_attrib: '{-@ MOD' String exp '-}';
 
 //---------------------------------------------------------------------------
 // Warnings and deprecations
