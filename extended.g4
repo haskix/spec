@@ -104,11 +104,11 @@ import_tree:
 // declarations
 
 visibility:
-	'public' (
-		'(' ('flake' | 'self' | 'super' | 'in' module_path)
-	);
+	'private' (
+		'(' ('flake' | 'self' | 'super' | 'in' module_path) ')'
+	)?;
 
-vis_header: visibility 'where'?;
+block_header: visibility? 'block' 'where'?;
 
 //---------------------------------------------------------------------------
 // Precedence Group Declarations
@@ -149,7 +149,7 @@ top_decl:
 	| '{-# RULES' rule+ '#-}' ';'
 	| annotation
 	| decl_no_th
-	| attribute* vis_header '{' top_decl* '}' ';'
+	| attribute* block_header '{' top_decl* '}' ';'
 
 	// Template Haskell Extension The $(..) form is one possible form of infixexp but we treat an
 	// arbitrary expression just as if it had a $(..) wrapped around it
@@ -252,7 +252,7 @@ capi_ctype: ('{-# CTYPE' String String? '#-}')?;
 gadt_constr_list:
 	'where'? '{' (
 		gadt_constr
-		| vis_header '{' gadt_constr* '}' ';'
+		| block_header '{' gadt_constr* '}' ';'
 	)* '}';
 
 gadt_constr: attribute* visibility? con_list ':' sig_type ';';
@@ -263,7 +263,7 @@ gadt_constr: attribute* visibility? con_list ':' sig_type ';';
 constrs:
 	'where'? '{' (
 		constructor
-		| vis_header '{' constructor* '}' ';'
+		| block_header '{' constructor* '}' ';'
 	)* '}';
 
 constructor:
@@ -499,7 +499,7 @@ arg_type:
 	| '_';
 
 record_type:
-	'{' (field_type | vis_header '{' field_type* '}' ';')* '}';
+	'{' (field_type | block_header '{' field_type* '}' ';')* '}';
 
 field_type: attribute* sig_vars ':' forall_type ';';
 
