@@ -63,7 +63,7 @@ module_path: ('flake' | 'super' | module_id) (
 
 module_expr: module_path;
 
-module_decl: attribute* 'module' module_id mod_body ';';
+module_decl: attribute* 'module' module_id mod_body? ';';
 
 mod_body: 'where'? '{' root '}' | '=' module_expr;
 
@@ -76,16 +76,8 @@ rename_spec:
 	| 'type' ordinary_qual_type_con 'as' (type_con | type_con_op)
 	| 'pattern' qualified_con 'as' (con | con_op);
 
-import_decl:
-	attribute* 'import' module_id ('as' module_id)? ';';
-
 open_decl:
 	attribute* 'open' module_path ('.' import_tree | rename_spec)? ';';
-
-open_import_decl:
-	attribute* 'open' 'import' module_id (
-		'using' '{' (import_tree ';')* '}'
-	)? ';';
 
 import_tree:
 	'using' '{' (import_tree ';')* '}'
@@ -132,8 +124,6 @@ fixity_decl: 'infix' qualified_precedence_group ops ';';
 top_decl:
 	visibility? module_decl
 	| visibility? open_decl
-	| visibility? import_decl
-	| visibility? open_import_decl
 	| visibility? class_decl
 	| visibility? type_top_decl
 	| standalone_kind_sig
