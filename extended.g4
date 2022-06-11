@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-
 grammar Haskix;
 
 tokens {
@@ -75,18 +73,11 @@ mod_body: 'where'? '{' top_decl* '}' | '=' module_expr;
 //---------------------------------------------------------------------------
 // Import Declarations
 
-fixity: infix Integer?;
 rename_spec:
-	qualified_var 'as' (var | fixity var_op)
-	| o_qual_type_con_no_var_con 'as' (
-		type_con
-		| fixity type_con_op
-	)
-	| 'type' ordinary_qual_type_con 'as' (
-		type_con
-		| fixity type_con_op
-	)
-	| 'pattern' qualified_con 'as' (con | fixity con_op);
+	qualified_var 'as' (var | var_op)
+	| o_qual_type_con_no_var_con 'as' (type_con | type_con_op)
+	| 'type' ordinary_qual_type_con 'as' (type_con | type_con_op)
+	| 'pattern' qualified_con 'as' (con | con_op);
 
 import_decl:
 	attribute* 'import' module_id ('as' module_id)? ';';
@@ -120,13 +111,24 @@ visibility:
 vis_header: visibility 'where'?;
 
 //---------------------------------------------------------------------------
-// Fixity Declarations
+// Precedence Group Declarations
 
-infix: 'infix' | 'infixl' | 'infixr';
+precedence_group: var_id;
+qualified_precedence_group: qualifier? precedence_group;
+
+qual_prec_groups:
+	qualified_precedence_group (',' qualified_precedence_group)*;
+
+prec_group_decl:
+	'precedence_group' precedence_group 'where'? '{' (
+		'higher_than' '=' '[' qual_prec_groups ']' ';'
+	)? ('lower_than' '=' '[' qual_prec_groups ']' ';')? (
+		'associativity' '=' ('Left' | 'Right' | 'None') ';'
+	)? '}' ';';
 
 ops: op (',' op)*;
 
-fixity_decl: infix Integer? ops ';';
+fixity_decl: 'infix' qualified_precedence_group ops ';';
 //---------------------------------------------------------------------------
 // Top-Level Declarations
 
@@ -159,7 +161,7 @@ class_decl:
 		| decl
 		| 'default' infix_exp ':' sig_type ';'
 	)* '}' ';';
-functional_deps: ( '|' functional_dep (',' functional_dep)*)?;
+functional_deps: ('|' functional_dep (',' functional_dep)*)?;
 functional_dep: type_var* '->' type_var*;
 
 type_top_decl: // ordinary type synonyms
@@ -169,7 +171,7 @@ type_top_decl: // ordinary type synonyms
 	// 
 	// Note the use of type for the head; this allows infix type constructors to be declared
 	| attribute* 'type' 'family' type type_family_kind_sig? injective_info (
-		'where'? '{' ( ty_fam_inst_eqn* | '..') '}'
+		'where'? '{' (ty_fam_inst_eqn* | '..') '}'
 	)? ';'
 	| attribute* data_or_newtype capi_ctype type_class_header kind_sig? (
 		constrs
@@ -208,7 +210,8 @@ ty_fam_inst_eqn: ('forall' type_var_binder+ '.')? type '=' forall_type_with_kind
 associated_family_decl:
 	'data' 'family'? type data_family_kind_sig? ';'
 	| 'type' 'family'? type at_kind_inj_sig? ';'
-	| 'type' 'instance'? ty_fam_inst_eqn; // default intances
+	| 'type' 'instance'? ty_fam_inst_eqn;
+// default intances
 
 associated_instance_decl:
 	'type' 'instance'? ty_fam_inst_eqn ';'
@@ -556,6 +559,7 @@ sig_decl:
 	infix_exp ':' sig_type ';'
 	| var ',' sig_vars ':' sig_type ';'
 	| fixity_decl
+	| prec_group_decl
 	| pattern_synonym_sig ';'
 	| '{-# COMPLETE' con_list opt_tyconsig '#-}' ';'
 	// This rule is for both INLINE and INLINABLE pragmas
@@ -745,9 +749,7 @@ alts_list:
 		pattern /* <- multiway if is not allowed  */ alt_rhs ';'
 	)* '}';
 
-alt_rhs:
-	'->' exp where_binds?
-	| guard_pattern+ where_binds?;
+alt_rhs: '->' exp where_binds? | guard_pattern+ where_binds?;
 
 guard_pattern: '|' guard_quals '->' exp ';';
 
@@ -890,7 +892,8 @@ n_unit_general_type_con:
 
 ordinary_qual_type_con:
 	qualified_type_con
-	| '(' qual_type_con_symbol ')'; // These can appear in export lists
+	| '(' qual_type_con_symbol ')';
+// These can appear in export lists
 
 /** Type constructor which cannot be mistaken */
 o_qual_type_con_no_var_con:
@@ -933,16 +936,16 @@ ordinary_type_con: type_con | '(' type_con_symbol ')';
 //---------------------------------------------------------------------------
 // Operators
 
-op: var_op | con_op | '->'; //- used in infix decls
+op: var_op | con_op | '->';
+//- used in infix decls
 
 var_op: var_symbol | '`' var_id '`';
 
-qualified_op:
-	qualified_var_op
-	| qualified_con_op
-	| hole_op; //- used in sections
+qualified_op: qualified_var_op | qualified_con_op | hole_op;
+//- used in sections
 
-qopm: qvaropm | qualified_con_op | hole_op; //- used in sections
+qopm: qvaropm | qualified_con_op | hole_op;
+//- used in sections
 
 // used in sections
 hole_op: '`' '_' '`';
