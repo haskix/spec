@@ -4,6 +4,7 @@ tokens {
 	TightInfixAt,
 	PrefixTilde,
 	PrefixBang,
+	SuffixBang,
 	PrefixMinus,
 	PrefixProj /*-- RecordDotSyntax*/,
 	TightInfixProj /*-- RecordDotSyntax*/,
@@ -569,6 +570,7 @@ arg_exp:
 	qualified_var TightInfixAt arg_exp
 	| PrefixTilde arg_exp
 	| PrefixBang arg_exp
+	| arg_exp SuffixBang // expr! same as x<-expr; x 
 	| PrefixMinus arg_exp
 	| '\\' arg_pattern* '->' exp
 	| 'let' binds 'in' exp
