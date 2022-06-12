@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: MIT
-
 grammar Haskix;
 
 tokens {
 	TightInfixAt,
+	SuffixBang,
 	PrefixMinus,
 	PrefixProj /*-- RecordDotSyntax*/,
 	TightInfixProj /*-- RecordDotSyntax*/,
@@ -29,14 +28,11 @@ tokens {
 // maybe_stmt %name parseIdentifier identifier %name parseType ktype %name parseBackpack backpack
 // %partial parseHeader header
 
+// root node and module body
+root: mod_attrib* top_decl*;
+
 //---------------------------------------------------------------------------
 // Module
-
-// The place for module deprecation is really too restrictive, but if it was allowed at its natural
-// place just before 'module', we get an ugly s/r conflict with the second alternative. Another
-// solution would be the introduction of a new pragma DEPRECATED_MODULE, but this is not very nice,
-// either, and DEPRECATED is only expected to be used by people who really know what they are doing.
-// :-)
 
 module_id: UpperName;
 
@@ -44,99 +40,77 @@ module_path: ('flake' | 'super' | module_id) (
 		'.' ('super' | module_id)
 	)*;
 
-module_decl: 'module' module_id modwarning? mod_body ';';
+module_decl: attribute* 'module' module_id mod_body? ';';
 
-modwarning:
-	'{-# DEPRECATED' strings '#-}'
-	| '{-# WARNING' strings '#-}';
-
-mod_body: 'where'? '{' top_decl* '}';
+mod_body: 'where'? '{' root '}';
 
 //---------------------------------------------------------------------------
 // Import Declarations
 
-fixity: infix Integer?;
-rename_spec:
-	qualified_var 'as' (var | fixity var_op)
-	| o_qual_type_con_no_var_con 'as' (
-		type_con
-		| fixity type_con_op
-	)
-	| 'type' ordinary_qual_type_con 'as' (
-		type_con
-		| fixity type_con_op
-	);
-
-import_decl: 'import' module_id ('as' module_id)? ';';
-
-open_decl:
-	'open' module_path ('.' import_tree | rename_spec)? ';';
-
-open_import_decl:
-	'open' 'import' module_id (
-		'using' '{' (import_tree ';')* '}'
-	)? ';';
+open_decl: attribute* 'open' module_path ('.' import_tree)? ';';
 
 import_tree:
 	'using' '{' (import_tree ';')* '}'
 	| (module_id | 'super') ('.' import_tree)?
 	| 'self'
 	| var
-	| o_qual_type_con_no_var_con
-	| 'type' ordinary_qual_type_con
-	| rename_spec;
+	| o_qual_type_con_no_var_con;
 
 // -------------------------------------------------------------------------- Visibility
 // declarations
 
 visibility:
-	'public' (
-		'(' ('flake' | 'self' | 'super' | 'in' module_path)
-	);
+	'private' (
+		'(' ('flake' | 'self' | 'super' | 'in' module_path) ')'
+	)?;
 
-vis_header: visibility 'where'?;
+block_header: visibility? 'block' 'where'?;
 
 //---------------------------------------------------------------------------
-// Fixity Declarations
+// Precedence Group Declarations
 
-infix: 'infix' | 'infixl' | 'infixr';
+precedence_group: var_id;
+qualified_precedence_group: qualifier? precedence_group;
+
+qual_prec_groups:
+	qualified_precedence_group (',' qualified_precedence_group)*;
+
+prec_group_decl:
+	'precedence' precedence_group 'where'? '{' (
+		'above' '=' '[' qual_prec_groups ']' ';'
+	)? ('below' '=' '[' qual_prec_groups ']' ';')? (
+		'assoc' '=' ('Left' | 'Right' | 'None') ';'
+	)? '}' ';';
 
 ops: op (',' op)*;
 
-fixity_decl: infix Integer? ops ';';
+fixity_decl: 'infix' qualified_precedence_group ops ';';
 //---------------------------------------------------------------------------
 // Top-Level Declarations
 
 top_decl:
 	visibility? module_decl
 	| visibility? open_decl
-	| visibility? import_decl
-	| visibility? open_import_decl
 	| visibility? class_decl
 	| visibility? type_top_decl
 	| instance_decl
-	| '{-# DEPRECATED' deprecation+ '#-}' ';'
-	| '{-# WARNING' warning+ '#-}' ';'
 	| decl_no_th
-	| attribute* vis_header '{' top_decl* '}' ';';
+	| attribute* block_header '{' top_decl* '}' ';'
+	| infix_exp;
 
 class_decl:
-	attribute* 'class' type_class_header 'where'? '{' (
-		decl
-		| 'default' infix_exp ':' sig_type ';'
-	)* '}' ';';
+	attribute* 'class' type_class_header 'where'? '{' decl* '}' ';';
 
 type_top_decl: // ordinary type synonyms
 	attribute* 'type' type '=' forall_type_with_kind ';'
 	// Note ktype, not sigtype, on the right of '=' We allow an explicit for-all but we don't insert
 	// one in type Foo a = (b,b) Instead we just say b is out of scope
-	| attribute* data_or_newtype type_class_header kind_sig? (
-		constrs
-		| record
-	) deriving* ';';
+	// 
+	// Note the use of type for the head; this allows infix type constructors to be declared
+	| attribute* data_or_newtype kind_sig? (constrs | record) deriving* ';';
 
 instance_decl:
-	'instance' instance_type ('where'? '{' decl* '}')? ';';
+	attribute* 'instance' instance_type ('where'? '{' decl* '}')? ';';
 
 data_or_newtype: 'data' | 'newtype';
 
@@ -144,9 +118,6 @@ data_or_newtype: 'data' | 'newtype';
 
 kind_sig: ':' kind;
 
-// tycl_hdr parses the header of a class or data type decl, which takes the form T a b Eq a => T a
-// (Eq a, Ord b) => T a b T Int [a] -- for associated types Rather a lot of inlining here, else we
-// get reduce/reduce errors
 type_class_header: (context '=>')? type;
 
 //---------------------------------------------------------------------------
@@ -158,7 +129,7 @@ type_class_header: (context '=>')? type;
 constrs:
 	'where'? '{' (
 		constructor
-		| vis_header '{' constructor* '}' ';'
+		| block_header '{' constructor* '}' ';'
 	)* '}';
 
 constructor:
@@ -180,8 +151,6 @@ deriv_clause_types:
 	| '(' ')'
 	| '(' deriv_types ')';
 
-qvarcon: qualified_var | qualified_con;
-
 //---------------------------------------------------------------------------
 // Nested declarations
 
@@ -194,17 +163,6 @@ binds:
 where_binds:
 	// May have implicit parameters No type declarations:
 	'where' binds;
-
-//---------------------------------------------------------------------------
-// Warnings and deprecations (c.f. rules)
-
-// SUP: TEMPORARY HACK, not checking for `module Foo'
-warning: name_list strings ';';
-
-// SUP: TEMPORARY HACK, not checking for `module Foo'
-deprecation: name_list strings ';';
-
-strings: String | '[' (String (',' String)*)? ']';
 
 //---------------------------------------------------------------------------
 // Type signatures
@@ -247,23 +205,18 @@ context: b_type;
  disconnected. Hence for this specific case it is connected to the first type too.
  */
 
-type: b_type /*shift*/;
+type: b_type /*shift*/ | b_type '->.' forall_type;
 
 b_type: infix_type;
 
-infix_type:
-	type_apply /*%shift*/
-	| type_apply type_op infix_type;
+infix_type: type_apply /*%shift*/;
 
 type_apply:
 	arg_type
-	| type_op
 	| type_apply type_arg
 	| type_apply PrefixAt arg_type;
 
 type_arg: arg_type;
-
-type_op: qual_type_con_op | type_var_op;
 
 arg_type:
 	n_unit_general_type_con //- Not including unit tuples
@@ -278,7 +231,7 @@ arg_type:
 	| '_';
 
 record_type:
-	'{' (field_type | vis_header '{' field_type* '}' ';')* '}';
+	'{' (field_type | block_header '{' field_type* '}' ';')* '}';
 
 field_type: attribute* sig_vars ':' forall_type ';';
 
@@ -331,11 +284,7 @@ sig_decl:
 	infix_exp ':' sig_type ';'
 	| var ',' sig_vars ':' sig_type ';'
 	| fixity_decl
-	| '{-# COMPLETE' con_list opt_tyconsig '#-}' ';'
-	// This rule is for both INLINE and INLINABLE pragmas
-	| '{-# BUILTIN' qvarcon '#-}' ';'
-	// A minimal complete definition
-	| '{-# MINIMAL' name_boolformula? '#-}' ';';
+	| prec_group_decl;
 
 //---------------------------------------------------------------------------
 // Expressions
@@ -350,16 +299,18 @@ fun_exp: fun_exp arg_exp | fun_exp PrefixAt arg_type | arg_exp;
 
 arg_exp:
 	qualified_var TightInfixAt arg_exp
+	| arg_exp SuffixBang // expr! same as x<-expr; x 
 	| PrefixMinus arg_exp
 	| '\\' arg_pattern* '->' exp
 	| 'let' binds 'in' exp
 	| 'if' exp 'then' exp 'else' exp
 	| 'if' '{' guard_pattern+ '}'
 	| 'case' exp 'of'? alts_list
+	| ('do') stmt_list
 	| arg_exp1;
 
 arg_exp1:
-	arg_exp1 '{' field_binds '}'
+	arg_exp1 'with'? '{' field_binds '}'
 	| arg_exp1 TightInfixProj field
 	| arg_exp2;
 
@@ -382,20 +333,26 @@ arg_exp2:
 	| '(' tuple_exprs ')'
 	| '(' projection ')'
 	| '[' list ']'
-	| '_'
-	// Template Haskell Extension
-	| splice_untyped;
+	| '_';
 
 projection: projection TightInfixProj field | PrefixProj field;
-
-splice_untyped: PrefixDollar '(' 'includeStr' String ')';
 
 //---------------------------------------------------------------------------
 // Tuple expressions
 
 // "texp" is short for tuple expressions: things that can appear unparenthesized as long as they're
 // inside parens or delimited by commas
-tuple_exp: exp;
+tuple_exp:
+	exp
+	// Note [Parsing sections] ~~~~~~~~~~~~~~~~~~~~~~~ We include left and right sections here,
+	// which isn't technically right according to the Haskell standard. For example (3 +, True)
+	// isn't legal. However, we want to parse bang patterns like (!x, !y) and it's convenient to do
+	// so here as a section Then when converting expr to pattern we unravel it again Meanwhile, the
+	// renamer checks that real sections appear inside parens.
+	| infix_exp qualified_op
+	| qopm infix_exp
+	// View patterns get parenthesized above
+	| exp '->' tuple_exp;
 
 // Always at least one comma or bar. Though this can parse just commas (without any expressions), it
 // won't in practice, because (,,,) is parsed as a name. See Note [ExplicitTuple] in GHC.Hs.Expr.
@@ -413,10 +370,20 @@ tup_tail: tuple_exp commas_tup_tail?;
 list:
 	tuple_exp
 	| lexps
+	| tuple_exp '..'
+	| tuple_exp ',' exp '..'
 	| tuple_exp '..' exp
-	| tuple_exp ',' exp '..' exp;
+	| tuple_exp ',' exp '..' exp
+	| tuple_exp ('|' squals)+;
 
 lexps: (lexps | tuple_exp) ',' tuple_exp;
+
+//---------------------------------------------------------------------------
+// List Comprehensions
+
+squals: // one can "grab" the earlier ones
+	squals ',' qual
+	| qual;
 
 //---------------------------------------------------------------------------
 // Guards
@@ -431,9 +398,7 @@ alts_list:
 		pattern /* <- multiway if is not allowed  */ alt_rhs ';'
 	)* '}';
 
-alt_rhs:
-	'->' exp where_binds?
-	| guard_pattern+ where_binds?;
+alt_rhs: '->' exp where_binds? | guard_pattern+ where_binds?;
 
 guard_pattern: '|' guard_quals '->' exp ';';
 
@@ -451,6 +416,10 @@ arg_pattern: arg_exp;
 
 //---------------------------------------------------------------------------
 // Statement sequences
+
+stmt_list: '{' stmt* '}';
+
+stmt: qual ';';
 
 qual: bind_pattern '<-' exp | exp | 'let' binds;
 
@@ -476,7 +445,9 @@ field_bind:
 //---------------------------------------------------------------------------
 // Attributes
 
-attribute: '{-# ATTRIB' exp '#-}';
+attribute: '{-@' String exp '-}';
+
+mod_attrib: '{-@ MOD' String exp '-}';
 
 //---------------------------------------------------------------------------
 // Warnings and deprecations
@@ -491,8 +462,6 @@ name_boolformula_and_list:
 
 name_boolformula_atom: '(' name_boolformula ')' | name_var;
 
-name_list: name_var (',' name_var)*;
-
 name_var: var | con;
 
 //---------------------------------------
@@ -502,7 +471,9 @@ name_var: var | con;
 // Note [ExplicitTuple] in GHC.Hs.Expr
 sysd_con_nolist: //- Wired in data constructors
 	'(' ')'
-	| '(' ','+ ')';
+	| '(' ','+ ')'
+	| '(#' '#)'
+	| '(#' ','+ '#)';
 
 // See Note [Empty lists] in GHC.Hs.Expr
 sysd_con: sysd_con_nolist | '[' ']';
@@ -528,18 +499,21 @@ qualified_con_op:
 
 // See Note [Unit tuples] in GHC.Hs.Type for the distinction between gtycon and ntgtycon * A
 /** "general" qualified tycon, including unit tuples*/
-general_type_con: n_unit_general_type_con | '(' ')';
+general_type_con: n_unit_general_type_con | '(' ')' | '(#' '#)';
 
 /** A "general" qualified tycon, excluding unit tuples */
 n_unit_general_type_con:
 	ordinary_qual_type_con
 	| '(' ','+ ')'
+	| '(#' ','+ '#)'
+	| '(#' '|'+ '#)'
 	| '(' '->' ')'
 	| '[' ']';
 
 ordinary_qual_type_con:
 	qualified_type_con
-	| '(' qual_type_con_symbol ')'; // These can appear in export lists
+	| '(' qual_type_con_symbol ')';
+// These can appear in export lists
 
 /** Type constructor which cannot be mistaken */
 o_qual_type_con_no_var_con:
@@ -558,11 +532,6 @@ o_qual_type_con_no_var_con:
  constructors. As such, they still end up in the type constructor namespace until after renaming
  when we resolve the proper namespace for each exported child.
  */
-qual_type_con_op: // See Note [%shift: qtyconop -> qtyconsym]
-	qual_type_con_symbol /*shift  */
-	| '`' qualified_type_con '`';
-
-type_con_op: type_con_symbol | '`' type_con '`';
 
 qualified_type_con: qualifier? type_con;
 
@@ -578,16 +547,16 @@ type_con_symbol: ConstructorSymbol | VarSymbol | '-' | '.';
 //---------------------------------------------------------------------------
 // Operators
 
-op: var_op | con_op | '->'; //- used in infix decls
+op: var_op | con_op | '->';
+//- used in infix decls
 
 var_op: var_symbol | '`' var_id '`';
 
-qualified_op:
-	qualified_var_op
-	| qualified_con_op
-	| hole_op; //- used in sections
+qualified_op: qualified_var_op | qualified_con_op | hole_op;
+//- used in sections
 
-qopm: qvaropm | qualified_con_op | hole_op; //- used in sections
+qopm: qvaropm | qualified_con_op | hole_op;
+//- used in sections
 
 // used in sections
 hole_op: '`' '_' '`';
@@ -603,14 +572,7 @@ qvaropm: qvarsym_no_minus | '`' qualified_var_id '`';
 
 type_var: type_var_id;
 
-type_var_op: '`' type_var_id '`';
-
-type_var_id:
-	LowerName
-	| special_id
-	| 'unsafe'
-	| 'safe'
-	| 'interruptible';
+type_var_id: LowerName | special_id;
 
 //---------------------------------------------------------------------------
 // Variables
