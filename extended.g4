@@ -110,10 +110,10 @@ qual_prec_groups:
 	qualified_precedence_group (',' qualified_precedence_group)*;
 
 prec_group_decl:
-	'precedence_group' precedence_group 'where'? '{' (
-		'higher_than' '=' '[' qual_prec_groups ']' ';'
-	)? ('lower_than' '=' '[' qual_prec_groups ']' ';')? (
-		'associativity' '=' ('Left' | 'Right' | 'None') ';'
+	'precedence' precedence_group 'where'? '{' (
+		'above' '=' '[' qual_prec_groups ']' ';'
+	)? ('below' '=' '[' qual_prec_groups ']' ';')? (
+		'assoc' '=' ('Left' | 'Right' | 'None') ';'
 	)? '}' ';';
 
 ops: op (',' op)*;
