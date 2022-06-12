@@ -445,9 +445,9 @@ field_bind:
 //---------------------------------------------------------------------------
 // Attributes
 
-attribute: '{-@' String exp '-}';
+attribute: '{-@' String exp '@-}';
 
-mod_attrib: '{-@ MOD' String exp '-}';
+mod_attrib: '{-@ MOD' String exp '@-}';
 
 //---------------------------------------------------------------------------
 // Warnings and deprecations
