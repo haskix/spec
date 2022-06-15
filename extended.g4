@@ -162,7 +162,7 @@ type_top_decl: // ordinary type synonyms
 		constrs
 		| gadt_constr_list
 		| record
-	) deriving* ';'
+	) ';'
 	| attribute* 'data' 'family' type data_family_kind_sig? ';';
 
 // Injective type families
@@ -182,7 +182,7 @@ instance_decl:
 		constrs
 		| gadt_constr_list
 		| record
-	) deriving* ';';
+	) ';';
 
 standalone_kind_sig:
 	'type' (ordinary_qual_type_con (',' ordinary_qual_type_con)*) ':' sig_type_with_kind ';';
@@ -205,7 +205,7 @@ associated_instance_decl:
 		constrs
 		| gadt_constr_list
 		| record
-	) deriving* ';';
+	) ';';
 
 data_or_newtype: 'data' | 'newtype';
 
@@ -238,7 +238,7 @@ gadt_constr_list:
 	'where'? '{' (
 		gadt_constr
 		| block_header '{' gadt_constr* '}' ';'
-	)* '}';
+	)* deriving* '}';
 
 gadt_constr: attribute* visibility? con_list ':' sig_type ';';
 
@@ -249,14 +249,14 @@ constrs:
 	'where'? '{' (
 		constructor
 		| block_header '{' constructor* '}' ';'
-	)* '}';
+	)* deriving* '}';
 
 constructor:
 	'|' attribute* visibility? forall? (context '=>')? constr_stuff ';';
 
 forall: 'forall' type_var_binder+ '.';
 
-record: 'where'? record_type;
+record: 'where'? '{' record_body deriving* '}';
 
 constr_stuff: infix_type;
 
@@ -268,7 +268,7 @@ deriving:
 		'deriving' deriv_clause_types
 		| 'deriving' deriv_strategy_no_via deriv_clause_types
 		| 'deriving' deriv_clause_types deriv_strategy_via
-	);
+	) ';';
 
 deriv_clause_types:
 	qualified_type_con
@@ -465,8 +465,9 @@ arg_type:
 	| String
 	| '_';
 
-record_type:
-	'{' (field_type | block_header '{' field_type* '}' ';')* '}';
+record_type: '{' record_body '}';
+
+record_body: (field_type | block_header '{' field_type* '}' ';')*;
 
 field_type: attribute* sig_vars ':' forall_type ';';
 

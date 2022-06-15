@@ -107,7 +107,7 @@ type_top_decl: // ordinary type synonyms
 	// one in type Foo a = (b,b) Instead we just say b is out of scope
 	// 
 	// Note the use of type for the head; this allows infix type constructors to be declared
-	| attribute* data_or_newtype kind_sig? (constrs | record) deriving* ';';
+	| attribute* data_or_newtype kind_sig? (constrs | record) ';';
 
 instance_decl:
 	attribute* 'instance' instance_type ('where'? '{' decl* '}')? ';';
@@ -130,21 +130,21 @@ constrs:
 	'where'? '{' (
 		constructor
 		| block_header '{' constructor* '}' ';'
-	)* '}';
+	)* deriving* '}';
 
 constructor:
 	'|' attribute* visibility? forall? (context '=>')? constr_stuff ';';
 
 forall: 'forall' type_var_binder+ '.';
 
-record: 'where'? record_type;
+record: 'where'? '{' record_body deriving* '}';
 
 constr_stuff: infix_type;
 
 //---------------------------------------------------------------------------
 // deriving
 
-deriving: attribute* 'deriving' deriv_clause_types;
+deriving: attribute* 'deriving' deriv_clause_types ';';
 
 deriv_clause_types:
 	qualified_type_con
@@ -230,8 +230,8 @@ arg_type:
 	| '(' forall_type_with_kind ')'
 	| '_';
 
-record_type:
-	'{' (field_type | block_header '{' field_type* '}' ';')* '}';
+record_type: '{' record_body '}';
+record_body: (field_type | block_header '{' field_type* '}' ';')*;
 
 field_type: attribute* sig_vars ':' forall_type ';';
 
