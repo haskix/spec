@@ -17,9 +17,7 @@ tokens {
 	Char,
 	String,
 	Integer,
-	Rational,
-
-	PrefixDollar
+	Rational
 }
 
 // -- Exported parsers %name parseModuleNoHaddock module %name parseSignature signature %name
@@ -471,9 +469,7 @@ name_var: var | con;
 // Note [ExplicitTuple] in GHC.Hs.Expr
 sysd_con_nolist: //- Wired in data constructors
 	'(' ')'
-	| '(' ','+ ')'
-	| '(#' '#)'
-	| '(#' ','+ '#)';
+	| '(' ','+ ')';
 
 // See Note [Empty lists] in GHC.Hs.Expr
 sysd_con: sysd_con_nolist | '[' ']';
@@ -499,14 +495,12 @@ qualified_con_op:
 
 // See Note [Unit tuples] in GHC.Hs.Type for the distinction between gtycon and ntgtycon * A
 /** "general" qualified tycon, including unit tuples*/
-general_type_con: n_unit_general_type_con | '(' ')' | '(#' '#)';
+general_type_con: n_unit_general_type_con | '(' ')';
 
 /** A "general" qualified tycon, excluding unit tuples */
 n_unit_general_type_con:
 	ordinary_qual_type_con
 	| '(' ','+ ')'
-	| '(#' ','+ '#)'
-	| '(#' '|'+ '#)'
 	| '(' '->' ')'
 	| '[' ']';
 
