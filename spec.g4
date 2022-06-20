@@ -167,8 +167,6 @@ where_binds:
 
 sig: ':' forall_type;
 
-opt_tyconsig: ( ':' general_type_con)?;
-
 // Like ktype, but for types that obey the forall-or-nothing rule. 
 sig_type_with_kind: sig_type | forall_type ':' kind;
 
@@ -447,21 +445,6 @@ attribute: '{-@' String exp '@-}';
 
 mod_attrib: '{-@ MOD' String exp '@-}';
 
-//---------------------------------------------------------------------------
-// Warnings and deprecations
-
-name_boolformula:
-	name_boolformula_and ('|' name_boolformula_and)*;
-
-name_boolformula_and: name_boolformula_and_list;
-
-name_boolformula_and_list:
-	name_boolformula_atom (',' name_boolformula_atom)*;
-
-name_boolformula_atom: '(' name_boolformula ')' | name_var;
-
-name_var: var | con;
-
 //---------------------------------------
 // Data constructors
 
@@ -481,8 +464,6 @@ gen_qual_con:
 con: constructor_id | '(' constructor_symbol ')' | sysd_con;
 
 qualified_con: gen_qual_con | sysd_con;
-
-con_list: con (',' con)*;
 
 con_op: constructor_symbol | '`' constructor_id '`';
 
