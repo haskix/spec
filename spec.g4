@@ -91,6 +91,7 @@ top_decl:
 	| visibility? open_decl
 	| visibility? class_decl
 	| visibility? type_top_decl
+	| visibility? prec_group_decl
 	| instance_decl
 	| decl_no_th
 	| attribute* block_header '{' top_decl* '}' ';'
@@ -279,8 +280,7 @@ sig_decl:
 	// See Note [Declaration/signature overlap] for why we need infixexp here
 	infix_exp ':' sig_type ';'
 	| var ',' sig_vars ':' sig_type ';'
-	| fixity_decl
-	| prec_group_decl;
+	| fixity_decl;
 
 //---------------------------------------------------------------------------
 // Expressions

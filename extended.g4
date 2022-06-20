@@ -127,6 +127,7 @@ top_decl:
 	| visibility? open_decl
 	| visibility? class_decl
 	| visibility? type_top_decl
+	| visibility? prec_group_decl
 	| standalone_kind_sig
 	| instance_decl
 	| standalone_deriving
@@ -527,7 +528,6 @@ sig_decl:
 	infix_exp ':' sig_type ';'
 	| var ',' sig_vars ':' sig_type ';'
 	| fixity_decl
-	| prec_group_decl
 	| pattern_synonym_sig ';'
 	| '{-# COMPLETE' con_list opt_tyconsig '#-}' ';'
 	// This rule is for both INLINE and INLINABLE pragmas
