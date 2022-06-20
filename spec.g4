@@ -202,7 +202,7 @@ context: b_type;
  disconnected. Hence for this specific case it is connected to the first type too.
  */
 
-type: b_type /*shift*/ | b_type '->.' forall_type;
+type: b_type /*shift*/ | b_type '->' forall_type;
 
 b_type: infix_type;
 
