@@ -108,7 +108,7 @@ type_top_decl: // ordinary type synonyms
 	| attribute* data_or_newtype kind_sig? (constrs | record) ';';
 
 instance_decl:
-	attribute* 'instance' instance_type ('where'? '{' decl* '}')? ';';
+	'instance' instance_type ('where'? '{' decl* '}')? ';';
 
 data_or_newtype: 'data' | 'newtype';
 
@@ -142,7 +142,7 @@ constr_stuff: infix_type;
 //---------------------------------------------------------------------------
 // deriving
 
-deriving: attribute* 'deriving' deriv_clause_types ';';
+deriving: 'deriving' deriv_clause_types ';';
 
 deriv_clause_types:
 	qualified_type_con
