@@ -58,7 +58,7 @@ import_tree:
 // declarations
 
 visibility:
-	'private' (
+	('private' | 'public') (
 		'(' ('flake' | 'self' | 'super' | 'in' module_path) ')'
 	)?;
 
