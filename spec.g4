@@ -323,9 +323,7 @@ arg_exp2:
 	// 3, 4 -)', which isn't correct Haskell (you'd have to write '((+ 3), (4 -))') but the less
 	// cluttered version fell out of having texps.
 	| '(' tuple_exp ')'
-	| 'record' ('(' deriv_types ')')? 'with'? '{' (
-		attribute* field_bind
-	)* '}'
+	| 'record' 'with'? '{' (attribute* field_bind)* deriving* '}'
 	| '(' tuple_exprs ')'
 	| '(' projection ')'
 	| '[' list ']'
